@@ -1,0 +1,9 @@
+streamlit
+openai
+python-dotenv
+requests
+pandas
+sentence-transformers
+scikit-learn
+sounddevice
+scipy

@@ -1,0 +1,9 @@
+.env
+__pycache__/
+*.pyc
+venv/
+.venv/
+recorded_audio.wav
+temp_audio_file.*
+.DS_Store
+temp_audio_file
