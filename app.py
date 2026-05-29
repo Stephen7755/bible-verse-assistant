@@ -91,6 +91,11 @@ if not presentation_mode or show_controls:
         ["kjv", "web"]
     )
 
+    compare_translations = st.toggle(
+    "Compare Translations",
+    value=False
+)
+
     user_text = st.text_area(
         "What did the pastor say?",
         placeholder="Example: Open John chapter 3 verse 16",
@@ -397,6 +402,28 @@ def add_to_history(reference, verse_text):
         "text": verse_text
     })
 
+def get_parallel_verses(reference):
+    kjv_text = get_verse(reference, "kjv")
+    web_text = get_verse(reference, "web")
+
+    return kjv_text, web_text
+
+def detect_requested_translation(text, default_translation):
+    text = text.lower()
+
+    if "web translation" in text:
+        return "web"
+
+    if "world english bible" in text:
+        return "web"
+
+    if "kjv" in text:
+        return "kjv"
+
+    if "king james" in text:
+        return "kjv"
+
+    return default_translation
 # =========================
 # 11. SEMANTIC SEARCH MODEL SETUP
 # =========================
@@ -484,15 +511,6 @@ def semantic_scripture_search(query, top_k=20):
 # =========================
 # Manual one-click recording: records, transcribes, detects, and displays scripture.
 
-st.subheader("Voice Scripture Detection")
-
-record_seconds = st.slider(
-    "Recording length",
-    min_value=5,
-    max_value=30,
-    value=10
-)
-
 if st.button("Record and Find Scripture", key="record_voice"):
     with st.spinner("Recording... Speak now."):
         recorded_file = record_from_microphone(record_seconds)
@@ -519,14 +537,35 @@ if st.button("Record and Find Scripture", key="record_voice"):
 
         for reference in references:
             st.write(reference)
-            verse_text = get_verse(reference, translation)
 
-            st.subheader(reference)
-            st.session_state.current_displayed_verse = verse_text
-            display_verse(verse_text, presentation_mode)
+            if compare_translations:
+                kjv_text, web_text = get_parallel_verses(reference)
+
+                add_to_history(reference, f"KJV:\n{kjv_text}\n\nWEB:\n{web_text}")
+
+                st.subheader(reference)
+
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    st.markdown("### KJV")
+                    display_verse(kjv_text, presentation_mode)
+
+                with col2:
+                    st.markdown("### WEB")
+                    display_verse(web_text, presentation_mode)
+
+            else:
+                verse_text = get_verse(reference, translation)
+
+                add_to_history(reference, verse_text)
+
+                st.subheader(reference)
+                st.session_state.current_displayed_verse = verse_text
+                display_verse(verse_text, presentation_mode)
+
     else:
         st.warning("No Bible reference detected.")
-
 
 # =========================
 # 16. CONTINUOUS LISTENING MODE
@@ -569,15 +608,36 @@ if continuous_mode:
         st.subheader("Detected References")
 
         for reference in references:
-            verse_text = get_verse(reference, translation)
-            add_to_history(reference, verse_text)
+            st.write(reference)
 
-            st.subheader(reference)
-            st.session_state.current_displayed_verse = verse_text
-            display_verse(verse_text, presentation_mode)
+            if compare_translations:
+                kjv_text, web_text = get_parallel_verses(reference)
+
+                add_to_history(reference, f"KJV:\n{kjv_text}\n\nWEB:\n{web_text}")
+
+                st.subheader(reference)
+
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    st.markdown("### KJV")
+                    display_verse(kjv_text, presentation_mode)
+
+                with col2:
+                    st.markdown("### WEB")
+                    display_verse(web_text, presentation_mode)
+
+            else:
+                verse_text = get_verse(reference, translation)
+
+                add_to_history(reference, verse_text)
+
+                st.subheader(reference)
+                st.session_state.current_displayed_verse = verse_text
+                display_verse(verse_text, presentation_mode)
+
     else:
-        st.warning("No Bible reference detected in this listening interval.")
-
+        st.warning("No Bible reference detected.")
     time.sleep(1)
     st.rerun()
 
@@ -604,13 +664,35 @@ if st.button("Find Verse"):
 
         for reference in references:
             st.write(reference)
-            verse_text = get_verse(reference, translation)
 
-            st.subheader(reference)
-            st.session_state.current_displayed_verse = verse_text
-            display_verse(verse_text, presentation_mode)
+            if compare_translations:
+                kjv_text, web_text = get_parallel_verses(reference)
+
+                add_to_history(reference, f"KJV:\n{kjv_text}\n\nWEB:\n{web_text}")
+
+                st.subheader(reference)
+
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    st.markdown("### KJV")
+                    display_verse(kjv_text, presentation_mode)
+
+                with col2:
+                    st.markdown("### WEB")
+                    display_verse(web_text, presentation_mode)
+
+            else:
+                verse_text = get_verse(reference, translation)
+
+                add_to_history(reference, verse_text)
+
+                st.subheader(reference)
+                st.session_state.current_displayed_verse = verse_text
+                display_verse(verse_text, presentation_mode)
+
     else:
-        st.warning("No Bible reference detected. Try something like John 3:16.")
+        st.warning("No Bible reference detected.")
 
 
 # =========================
