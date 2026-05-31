@@ -200,7 +200,19 @@ def contains_command(text):
         "open your bibles to",
         "go to",
         "let's go to",
-        "lets go to"
+        "lets go to",
+        "the bible says in",
+        "as we read in",
+        "as it says in",
+        "turn with me to",
+        "continue from",
+        "let's continue from",
+        "lets continue from",
+        "we are reading from",
+        "we will read from",
+        "our scripture is",
+        "today's scripture is",
+        "todays scripture is"
     ]
 
     text = text.lower()
@@ -226,6 +238,32 @@ def detect_multiple_references(text):
     text = text.replace(".", "")
 
     command_words = [
+        "the bible says in",
+        "the bible says",
+
+        "as we read in",
+        "as it says in",
+
+        "turn with me to",
+
+        "we are reading from",
+        "we're reading from",
+
+        "we are reading",
+        "we're reading",
+
+        "reading from",
+
+        "we will read from",
+
+        "our scripture is",
+
+        "today's scripture is",
+        "todays scripture is",
+
+        "continue from",
+        "let's continue from",
+        "lets continue from",
         "let's turn our bibles to",
     "lets turn our bibles to",
     "turn our bibles to",
