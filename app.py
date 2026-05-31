@@ -190,6 +190,11 @@ def convert_number_words(text):
 
 def contains_command(text):
     commands = [
+        "let's continue from where we stopped",
+        "lets continue from where we stopped",
+        "where we stopped",
+        "our scripture reading today is",
+        "scripture reading today is",
         "let's read",
         "lets read",
         "read",
@@ -238,6 +243,11 @@ def detect_multiple_references(text):
     text = text.replace(".", "")
 
     command_words = [
+        "let's continue from where we stopped",
+        "lets continue from where we stopped",
+        "where we stopped",
+        "our scripture reading today is",
+        "scripture reading today is",
         "the bible says in",
         "the bible says",
 
