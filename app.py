@@ -77,6 +77,7 @@ translation = "kjv"
 user_text = ""
 audio_file = None
 mic_audio = None
+record_seconds = 10
 
 if not presentation_mode or show_controls:
 
@@ -411,16 +412,36 @@ def get_parallel_verses(reference):
 def detect_requested_translation(text, default_translation):
     text = text.lower()
 
+    # WEB
     if "web translation" in text:
+        return "web"
+
+    if "web version" in text:
         return "web"
 
     if "world english bible" in text:
         return "web"
 
-    if "kjv" in text:
+    if "from web" in text:
+        return "web"
+
+    if "in web" in text:
+        return "web"
+
+    # KJV
+    if "king james version" in text:
         return "kjv"
 
     if "king james" in text:
+        return "kjv"
+
+    if "kjv" in text:
+        return "kjv"
+
+    if "from kjv" in text:
+        return "kjv"
+
+    if "in kjv" in text:
         return "kjv"
 
     return default_translation
@@ -511,6 +532,13 @@ def semantic_scripture_search(query, top_k=20):
 # =========================
 # Manual one-click recording: records, transcribes, detects, and displays scripture.
 
+
+record_seconds = st.slider(
+    "Recording length",
+    min_value=5,
+    max_value=30,
+    value=10
+)
 if st.button("Record and Find Scripture", key="record_voice"):
     with st.spinner("Recording... Speak now."):
         recorded_file = record_from_microphone(record_seconds)
@@ -556,7 +584,15 @@ if st.button("Record and Find Scripture", key="record_voice"):
                     display_verse(web_text, presentation_mode)
 
             else:
-                verse_text = get_verse(reference, translation)
+                requested_translation = detect_requested_translation(
+                final_text,
+                translation
+                )
+
+                verse_text = get_verse(
+                reference,
+                requested_translation
+                )
 
                 add_to_history(reference, verse_text)
 
@@ -628,7 +664,15 @@ if continuous_mode:
                     display_verse(web_text, presentation_mode)
 
             else:
-                verse_text = get_verse(reference, translation)
+                requested_translation = detect_requested_translation(
+                final_text,
+                translation
+                )
+
+                verse_text = get_verse(
+                reference,
+                requested_translation
+                )
 
                 add_to_history(reference, verse_text)
 
@@ -683,7 +727,16 @@ if st.button("Find Verse"):
                     display_verse(web_text, presentation_mode)
 
             else:
-                verse_text = get_verse(reference, translation)
+                requested_translation = detect_requested_translation(
+                final_text,
+                translation
+                )
+
+                verse_text = get_verse(
+                reference,
+                requested_translation
+                )
+
 
                 add_to_history(reference, verse_text)
 
