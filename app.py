@@ -49,6 +49,9 @@ if "scripture_history" not in st.session_state:
 if "current_displayed_verse" not in st.session_state:
     st.session_state.current_displayed_verse = None
 
+if "current_reference" not in st.session_state:
+    st.session_state.current_reference = None
+
 if presentation_mode:
     st.markdown(
         """
@@ -158,6 +161,14 @@ def record_from_microphone(seconds=10):
 # Converts spoken numbers like "four" or "thirteen" into digits.
 
 def convert_number_words(text):
+    text = text.replace("twenty-three", "twenty three")
+    text = text.replace("twenty three", "23")
+    text = text.replace("twenty two", "22")
+    text = text.replace("twenty one", "21")
+    text = text.replace("forty-five", "forty five")
+    text = text.replace("seventeen forty five", "17 45")
+    text = text.replace("seventeen forty-five", "17 45")
+
     number_words = {
         "one": "1",
         "two": "2",
@@ -178,7 +189,19 @@ def convert_number_words(text):
         "seventeen": "17",
         "eighteen": "18",
         "nineteen": "19",
-        "twenty": "20"
+        "twenty": "20",
+        "twenty one": "21",
+        "twenty two": "22",
+        "twenty three": "23",
+        "twenty four": "24",
+        "twenty five": "25",
+        "twenty six": "26",
+        "twenty seven": "27",
+        "twenty eight": "28",
+        "twenty nine": "29",
+        "thirty": "30",
+        "forty five": "45",
+        "forty": "40",
     }
 
     for word, number in number_words.items():
@@ -493,6 +516,45 @@ def detect_requested_translation(text, default_translation):
         return "kjv"
 
     return default_translation
+
+def save_current_reference(reference):
+    st.session_state.current_reference = reference
+
+
+def is_next_verse_command(text):
+    text = text.lower()
+
+    next_commands = [
+    "next verse",
+    "next verses",
+    "next scripture",
+    "next one",
+    "read on",
+    "go on",
+    "move on",
+    "continue",
+    "continue reading",
+    "continue please",
+    "let's continue",
+    "lets continue",
+    "continue to the next verse",
+    "go to the next verse"
+    ]
+
+    return any(command in text for command in next_commands)
+
+
+def get_next_reference(reference):
+    parts = reference.split()
+
+    book = " ".join(parts[:-1])
+    chapter_verse = parts[-1]
+
+    chapter, verse = chapter_verse.split(":")
+
+    next_verse = int(verse) + 1
+
+    return f"{book} {chapter}:{next_verse}"
 # =========================
 # 11. SEMANTIC SEARCH MODEL SETUP
 # =========================
@@ -645,6 +707,7 @@ if st.button("Record and Find Scripture", key="record_voice"):
                 add_to_history(reference, verse_text)
 
                 st.subheader(reference)
+                save_current_reference(reference)
                 st.session_state.current_displayed_verse = verse_text
                 display_verse(verse_text, presentation_mode)
 
@@ -686,7 +749,38 @@ if continuous_mode:
     final_text = transcript.text
     placeholder.write(f"Transcription: {final_text}")
 
-    references = detect_multiple_references(final_text)
+    st.write("Current reference:", st.session_state.current_reference)
+    st.write("Next command detected:", is_next_verse_command(final_text))
+
+    # NEXT VERSE COMMAND
+    if is_next_verse_command(final_text) and st.session_state.current_reference:
+        next_reference = get_next_reference(st.session_state.current_reference)
+
+        requested_translation = detect_requested_translation(
+            final_text,
+            translation
+        )
+
+        verse_text = get_verse(
+            next_reference,
+            requested_translation
+        )
+
+        add_to_history(next_reference, verse_text)
+
+        st.subheader(next_reference)
+        save_current_reference(next_reference)
+        st.session_state.current_displayed_verse = verse_text
+        display_verse(verse_text, presentation_mode)
+
+        time.sleep(1)
+        st.rerun()
+
+    # NORMAL SCRIPTURE DETECTION
+    if contains_command(final_text):
+        references = detect_multiple_references(final_text)
+    else:
+        references = []
 
     if references:
         st.subheader("Detected References")
@@ -697,7 +791,10 @@ if continuous_mode:
             if compare_translations:
                 kjv_text, web_text = get_parallel_verses(reference)
 
-                add_to_history(reference, f"KJV:\n{kjv_text}\n\nWEB:\n{web_text}")
+                add_to_history(
+                    reference,
+                    f"KJV:\n{kjv_text}\n\nWEB:\n{web_text}"
+                )
 
                 st.subheader(reference)
 
@@ -711,28 +808,31 @@ if continuous_mode:
                     st.markdown("### WEB")
                     display_verse(web_text, presentation_mode)
 
+                save_current_reference(reference)
+
             else:
                 requested_translation = detect_requested_translation(
-                final_text,
-                translation
+                    final_text,
+                    translation
                 )
 
                 verse_text = get_verse(
-                reference,
-                requested_translation
+                    reference,
+                    requested_translation
                 )
 
                 add_to_history(reference, verse_text)
 
                 st.subheader(reference)
+                save_current_reference(reference)
                 st.session_state.current_displayed_verse = verse_text
                 display_verse(verse_text, presentation_mode)
 
     else:
         st.warning("No Bible reference detected.")
+
     time.sleep(1)
     st.rerun()
-
 
 # =========================
 # 17. TEXT AND AUDIO FILE VERSE SEARCH
@@ -789,6 +889,7 @@ if st.button("Find Verse"):
                 add_to_history(reference, verse_text)
 
                 st.subheader(reference)
+                save_current_reference(reference)
                 st.session_state.current_displayed_verse = verse_text
                 display_verse(verse_text, presentation_mode)
 
