@@ -574,6 +574,7 @@ def is_next_verse_command(text):
     "nesverse",
     "nextves",
     "nextvez",
+    "next",
     "continue next"
 ]
 
