@@ -49,8 +49,14 @@ if "scripture_history" not in st.session_state:
 if "current_displayed_verse" not in st.session_state:
     st.session_state.current_displayed_verse = None
 
+if "scripture_queue" not in st.session_state:
+    st.session_state.scripture_queue = []
+
 if "current_reference" not in st.session_state:
     st.session_state.current_reference = None
+
+if "current_display_text" not in st.session_state:
+    st.session_state.current_display_text = None
 
 if presentation_mode:
     st.markdown(
@@ -299,6 +305,7 @@ def detect_multiple_references(text):
         "lets continue from",
         "let's turn our bibles to",
     "lets turn our bibles to",
+    "lets open our bibles to",
     "turn our bibles to",
     "turn your bibles to",
     "open your bibles to",
@@ -310,6 +317,8 @@ def detect_multiple_references(text):
 
     "let's read",
     "lets read",
+    "lets open",
+    "let's open",
 
     "let's go to",
     "lets go to",
@@ -538,8 +547,12 @@ def is_next_verse_command(text):
     "let's continue",
     "lets continue",
     "continue to the next verse",
-    "go to the next verse"
-    ]
+    "go to the next verse",
+    "show the next verse",
+    "give me the next verse",
+    "verse after that",
+    "the next verse"
+]
 
     return any(command in text for command in next_commands)
 
@@ -555,6 +568,30 @@ def get_next_reference(reference):
     next_verse = int(verse) + 1
 
     return f"{book} {chapter}:{next_verse}"
+
+def add_references_to_queue(references):
+    st.session_state.scripture_queue = references[1:]
+
+
+def has_next_scripture_command(text):
+    text = text.lower()
+
+    commands = [
+        "next scripture",
+        "next reference",
+        "next passage",
+        "go to next scripture",
+        "show next scripture"
+    ]
+
+    return any(command in text for command in commands)
+
+
+def get_next_scripture_from_queue():
+    if st.session_state.scripture_queue:
+        return st.session_state.scripture_queue.pop(0)
+
+    return None
 # =========================
 # 11. SEMANTIC SEARCH MODEL SETUP
 # =========================
@@ -642,13 +679,14 @@ def semantic_scripture_search(query, top_k=20):
 # =========================
 # Manual one-click recording: records, transcribes, detects, and displays scripture.
 
-
+# Show currently displayed scripture
 record_seconds = st.slider(
     "Recording length",
     min_value=5,
     max_value=30,
     value=10
 )
+
 if st.button("Record and Find Scripture", key="record_voice"):
     with st.spinner("Recording... Speak now."):
         recorded_file = record_from_microphone(record_seconds)
@@ -679,7 +717,10 @@ if st.button("Record and Find Scripture", key="record_voice"):
             if compare_translations:
                 kjv_text, web_text = get_parallel_verses(reference)
 
-                add_to_history(reference, f"KJV:\n{kjv_text}\n\nWEB:\n{web_text}")
+                add_to_history(
+                    reference,
+                    f"KJV:\n{kjv_text}\n\nWEB:\n{web_text}"
+                )
 
                 st.subheader(reference)
 
@@ -695,14 +736,17 @@ if st.button("Record and Find Scripture", key="record_voice"):
 
             else:
                 requested_translation = detect_requested_translation(
-                final_text,
-                translation
+                    final_text,
+                    translation
                 )
 
                 verse_text = get_verse(
-                reference,
-                requested_translation
+                    reference,
+                    requested_translation
                 )
+
+                st.session_state.current_display_reference = reference
+                st.session_state.current_display_text = verse_text
 
                 add_to_history(reference, verse_text)
 
@@ -735,7 +779,15 @@ listening_seconds = st.slider(
 if continuous_mode:
     st.info("Continuous listening is active. Speak a Bible reference clearly.")
 
+    if st.session_state.current_display_text:
+        st.subheader(st.session_state.current_display_reference)
+        display_verse(
+            st.session_state.current_display_text,
+            presentation_mode
+        )
+
     placeholder = st.empty()
+    scripture_placeholder = st.empty()
 
     with st.spinner("Listening..."):
         recorded_file = record_from_microphone(listening_seconds)
@@ -751,6 +803,35 @@ if continuous_mode:
 
     st.write("Current reference:", st.session_state.current_reference)
     st.write("Next command detected:", is_next_verse_command(final_text))
+
+    # NEXT SCRIPTURE COMMAND
+    if has_next_scripture_command(final_text):
+        next_reference = get_next_scripture_from_queue()
+
+        if next_reference:
+            requested_translation = detect_requested_translation(
+                final_text,
+                translation
+            )
+
+            verse_text = get_verse(
+                next_reference,
+                requested_translation
+            )
+
+            add_to_history(next_reference, verse_text)
+
+            with scripture_placeholder.container():
+                st.session_state.current_display_reference = next_reference
+                st.session_state.current_display_text = verse_text
+
+                st.subheader(next_reference)
+                save_current_reference(next_reference)
+                st.session_state.current_displayed_verse = verse_text
+                display_verse(verse_text, presentation_mode)
+
+            time.sleep(1)
+            st.rerun()
 
     # NEXT VERSE COMMAND
     if is_next_verse_command(final_text) and st.session_state.current_reference:
@@ -768,10 +849,14 @@ if continuous_mode:
 
         add_to_history(next_reference, verse_text)
 
-        st.subheader(next_reference)
-        save_current_reference(next_reference)
-        st.session_state.current_displayed_verse = verse_text
-        display_verse(verse_text, presentation_mode)
+        with scripture_placeholder.container():
+            st.session_state.current_display_reference = next_reference
+            st.session_state.current_display_text = verse_text
+
+            st.subheader(next_reference)
+            save_current_reference(next_reference)
+            st.session_state.current_displayed_verse = verse_text
+            display_verse(verse_text, presentation_mode)
 
         time.sleep(1)
         st.rerun()
@@ -783,18 +868,24 @@ if continuous_mode:
         references = []
 
     if references:
-        st.subheader("Detected References")
+        add_references_to_queue(references)
 
-        for reference in references:
-            st.write(reference)
+        reference = references[0]
 
-            if compare_translations:
-                kjv_text, web_text = get_parallel_verses(reference)
+        st.subheader("Current Scripture")
+        st.write(reference)
 
-                add_to_history(
-                    reference,
-                    f"KJV:\n{kjv_text}\n\nWEB:\n{web_text}"
-                )
+        if compare_translations:
+            kjv_text, web_text = get_parallel_verses(reference)
+
+            add_to_history(
+                reference,
+                f"KJV:\n{kjv_text}\n\nWEB:\n{web_text}"
+            )
+
+            with scripture_placeholder.container():
+                st.session_state.current_display_reference = reference
+                st.session_state.current_display_text = f"KJV:\n{kjv_text}\n\nWEB:\n{web_text}"
 
                 st.subheader(reference)
 
@@ -810,23 +901,32 @@ if continuous_mode:
 
                 save_current_reference(reference)
 
-            else:
-                requested_translation = detect_requested_translation(
-                    final_text,
-                    translation
-                )
+        else:
+            requested_translation = detect_requested_translation(
+                final_text,
+                translation
+            )
 
-                verse_text = get_verse(
-                    reference,
-                    requested_translation
-                )
+            verse_text = get_verse(
+                reference,
+                requested_translation
+            )
 
-                add_to_history(reference, verse_text)
+            add_to_history(reference, verse_text)
+
+            with scripture_placeholder.container():
+                st.session_state.current_display_reference = reference
+                st.session_state.current_display_text = verse_text
 
                 st.subheader(reference)
                 save_current_reference(reference)
                 st.session_state.current_displayed_verse = verse_text
                 display_verse(verse_text, presentation_mode)
+
+        if st.session_state.scripture_queue:
+            st.subheader("Scripture Queue")
+            for queued_reference in st.session_state.scripture_queue:
+                st.write(queued_reference)
 
     else:
         st.warning("No Bible reference detected.")
