@@ -284,6 +284,8 @@ def detect_multiple_references(text):
         "scripture reading today is",
         "the bible says in",
         "the bible says",
+        "Now let's read",
+        "Now let read",
 
         "as we read in",
         "as it says in",
