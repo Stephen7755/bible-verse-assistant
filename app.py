@@ -232,6 +232,7 @@ def contains_command(text):
         "turn our bibles to",
         "open to",
         "open your bibles to",
+        "open your bible to",
         "go to",
         "let's go to",
         "lets go to",
@@ -246,6 +247,10 @@ def contains_command(text):
         "we will read from",
         "our scripture is",
         "today's scripture is",
+        "let's open our bibles to",
+        "let open our bibles to",
+        "let's open our bible to",
+        "let open our bible to",
         "todays scripture is"
     ]
 
@@ -304,45 +309,46 @@ def detect_multiple_references(text):
         "let's continue from",
         "lets continue from",
         "let's turn our bibles to",
-    "lets turn our bibles to",
-    "lets open our bibles to",
-    "turn our bibles to",
-    "turn your bibles to",
-    "open your bibles to",
-    "open our bibles to",
+        "lets turn our bibles to",
+        "lets open our bibles to",
+        "let's open our bibles to",
+        "turn our bibles to",
+        "turn your bibles to",
+        "open your bibles to",
+        "open our bibles to",
 
-    "let's read from",
-    "lets read from",
-    "let us read from",
+        "let's read from",
+        "lets read from",
+        "let us read from",
 
-    "let's read",
-    "lets read",
-    "lets open",
-    "let's open",
+        "let's read",
+        "lets read",
+        "lets open",
+        "let's open",
 
-    "let's go to",
-    "lets go to",
-    "let us go to",
+        "let's go to",
+        "lets go to",
+        "let us go to",
 
-    "let's turn to",
-    "lets turn to",
-    "let us turn to",
+        "let's turn to",
+        "lets turn to",
+        "let us turn to",
 
-    "go to",
-    "read from",
-    "turn to",
-    "open to",
+        "go to",
+        "read from",
+        "turn to",
+        "open to",
 
-    "chapter",
-    "verse",
-    "verses",
+        "chapter",
+        "verse",
+        "verses",
 
     # SHORT WORDS LAST
-    "read",
-    "turn",
-    "open",
-    "from",
-    "to"
+        "read",
+        "turn",
+        "open",
+        "from",
+        "to"
     ]
 
     for word in command_words:
@@ -551,7 +557,24 @@ def is_next_verse_command(text):
     "show the next verse",
     "give me the next verse",
     "verse after that",
-    "the next verse"
+    "the next verse",
+    "next first",
+    "next versus",
+    "next vase",
+    "next fast",
+    "next vest",
+    "next vex",
+    "next vez",
+    "next ves",
+    "next vers",
+    "next this",
+    "go next",
+    "nextverse",
+    "nes verse",
+    "nesverse",
+    "nextves",
+    "nextvez",
+    "continue next"
 ]
 
     return any(command in text for command in next_commands)
