@@ -252,6 +252,15 @@ def contains_command(text):
         "let's open our bible to",
         "let open our bible to",
         "todays scripture is"
+        "scripture open",
+        "scripture read",
+        "scripture turn",
+        "scripture go to",
+        "bible open",
+        "bible read",
+        "bible turn",
+        "bible go to",
+        "open",
     ]
 
     text = text.lower()
@@ -276,6 +285,17 @@ def detect_multiple_references(text):
     text = text.replace(",", "")
     text = text.replace(".", "")
 
+    text = text.replace("scripture open", "open")
+    text = text.replace("bible open", "open")
+    text = text.replace("scripture read", "read")
+    text = text.replace("bible read", "read")
+    text = text.replace("scripture turn", "turn")
+    text = text.replace("bible turn", "turn")
+
+    text = text.replace("scripture", "")
+    text = text.replace("bible assistant", "")
+    text = text.replace("bible", "")
+
     command_words = [
         "let's continue from where we stopped",
         "lets continue from where we stopped",
@@ -284,8 +304,8 @@ def detect_multiple_references(text):
         "scripture reading today is",
         "the bible says in",
         "the bible says",
-        "Now let's read",
-        "Now let read",
+        "now let's read",
+        "now let read",
 
         "as we read in",
         "as it says in",
@@ -319,6 +339,7 @@ def detect_multiple_references(text):
         "open your bibles to",
         "open our bibles to",
 
+        
         "let's read from",
         "lets read from",
         "let us read from",
@@ -345,7 +366,21 @@ def detect_multiple_references(text):
         "verse",
         "verses",
 
-    # SHORT WORDS LAST
+        "scripture open",
+        "scripture read",
+        "scripture turn",
+        "scripture go to",
+        "bible open",
+        "bible read",
+        "bible turn",
+        "bible go to",
+
+        
+
+# SHORT WORDS LAST
+        "scripture",
+        "bible assistant",
+        "bible",
         "read",
         "turn",
         "open",
@@ -390,6 +425,7 @@ def detect_multiple_references(text):
 
     pattern = r"([1-3]?\s?[a-z]+(?:\s+[a-z]+)?)\s+(\d+)(?:[:\s]+(\d+(?:-\d+)?))?"
 
+    
     matches = re.findall(pattern, text)
 
     references = []
@@ -490,6 +526,22 @@ def add_to_history(reference, verse_text):
         "reference": reference,
         "text": verse_text
     })
+
+
+def contains_wake_phrase(text):
+    text = text.lower()
+
+    wake_phrases = [
+        "scripture",
+        "bible assistant",
+        "scripture",
+        "scriptures",
+        "structure",
+        "bible assistance",
+        "bible"
+    ]
+
+    return any(phrase in text for phrase in wake_phrases)
 
 def get_parallel_verses(reference):
     kjv_text = get_verse(reference, "kjv")
@@ -794,6 +846,11 @@ st.subheader("Continuous Listening Mode")
 
 continuous_mode = st.checkbox("Enable continuous listening")
 
+wake_phrase_mode = st.toggle(
+    "Wake Phrase Mode",
+    value=False
+)
+
 listening_seconds = st.slider(
     "Listening interval in seconds",
     min_value=5,
@@ -826,6 +883,11 @@ if continuous_mode:
 
     final_text = transcript.text
     placeholder.write(f"Transcription: {final_text}")
+
+    if wake_phrase_mode and not contains_wake_phrase(final_text):
+        st.info("Wake phrase not detected. Ignoring this audio.")
+        time.sleep(1)
+        st.rerun()
 
     st.write("Current reference:", st.session_state.current_reference)
     st.write("Next command detected:", is_next_verse_command(final_text))
