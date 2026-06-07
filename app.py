@@ -236,6 +236,9 @@ def contains_command(text):
         "go to",
         "let's go to",
         "lets go to",
+        "let's look at",
+        "lets look at",
+        "look at",
         "the bible says in",
         "as we read in",
         "as it says in",
@@ -251,6 +254,8 @@ def contains_command(text):
         "let open our bibles to",
         "let's open our bible to",
         "let open our bible to",
+        "turn to the book of",
+        "turn to the book"
         "todays scripture is"
         "scripture open",
         "scripture read",
@@ -261,6 +266,7 @@ def contains_command(text):
         "bible turn",
         "bible go to",
         "open",
+        "so",
     ]
 
     text = text.lower()
@@ -296,6 +302,21 @@ def detect_multiple_references(text):
     text = text.replace("bible assistant", "")
     text = text.replace("bible", "")
 
+    text = text.replace(" from verse ", " ")
+    text = text.replace(" from verses ", " ")
+    text = text.replace(" verse ", " ")
+    text = text.replace(" verses ", " ")
+    text = text.replace(" to ", "-")
+    text = text.replace(" and ", "-")
+    text = text.replace(" through to ", "-")
+
+    text = text.replace("openjohn", "open john")
+    text = text.replace("readjohn", "read john")
+    text = text.replace("turnjohn", "turn john")
+    text = text.replace("openromans", "open romans")
+    text = text.replace("readromans", "read romans")
+    text = text.replace("turnromans", "turn romans")
+
     command_words = [
         "let's continue from where we stopped",
         "lets continue from where we stopped",
@@ -306,6 +327,9 @@ def detect_multiple_references(text):
         "the bible says",
         "now let's read",
         "now let read",
+        "let's look at",
+        "lets look at",
+        "look at",
 
         "as we read in",
         "as it says in",
@@ -336,6 +360,11 @@ def detect_multiple_references(text):
         "let's open our bibles to",
         "turn our bibles to",
         "turn your bibles to",
+        "turn to the book of",
+        "turn to the book",
+        "open to the book of",
+        "open the book of",
+        "book of",
         "open your bibles to",
         "open our bibles to",
 
@@ -343,6 +372,7 @@ def detect_multiple_references(text):
         "let's read from",
         "lets read from",
         "let us read from",
+        "read from",
 
         "let's read",
         "lets read",
@@ -385,7 +415,8 @@ def detect_multiple_references(text):
         "turn",
         "open",
         "from",
-        "to"
+        "to",
+        "so"
     ]
 
     for word in command_words:
@@ -853,9 +884,9 @@ wake_phrase_mode = st.toggle(
 
 listening_seconds = st.slider(
     "Listening interval in seconds",
-    min_value=5,
-    max_value=20,
-    value=10,
+    min_value=2,
+    max_value=10,
+    value=2,
     key="continuous_seconds"
 )
 
@@ -875,18 +906,26 @@ if continuous_mode:
     with st.spinner("Listening..."):
         recorded_file = record_from_microphone(listening_seconds)
 
-        with open(recorded_file, "rb") as audio:
-            transcript = client.audio.transcriptions.create(
-                model="gpt-4o-mini-transcribe",
-                file=audio
-            )
+        try:
+            with open(recorded_file, "rb") as audio:
+                transcript = client.audio.transcriptions.create(
+                    model="gpt-4o-mini-transcribe",
+                    file=audio
+        )
+
+            final_text = transcript.text
+
+        except Exception as e:
+            st.warning("Could not connect to transcription service. Please try again.")
+            time.sleep(1)
+            st.rerun()
 
     final_text = transcript.text
     placeholder.write(f"Transcription: {final_text}")
 
     if wake_phrase_mode and not contains_wake_phrase(final_text):
         st.info("Wake phrase not detected. Ignoring this audio.")
-        time.sleep(1)
+        time.sleep(0.2)
         st.rerun()
 
     st.write("Current reference:", st.session_state.current_reference)
