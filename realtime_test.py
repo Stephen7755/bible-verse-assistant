@@ -3,6 +3,7 @@ import base64
 import json
 import os
 
+import requests
 import sounddevice as sd
 import websockets
 from dotenv import load_dotenv
@@ -14,7 +15,15 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 REALTIME_URL = "wss://api.openai.com/v1/realtime?model=gpt-realtime"
 
+
 def convert_number_words(text):
+
+    text = text.replace("twenty-three", "twenty three")
+    text = text.replace("twenty three", "23")
+    text = text.replace("thirty nine", "39")
+    text = text.replace("thirty-nine", "39")
+    text = text.replace("five to six", "5-6")
+    text = text.replace("five and six", "5-6")
     number_words = {
         "one": "1",
         "two": "2",
@@ -54,6 +63,13 @@ def detect_multiple_references(text):
     text = text.replace(",", "")
     text = text.replace(".", "")
 
+    text = text.replace(" from verse ", " ")
+    text = text.replace(" from verses ", " ")
+    text = text.replace(" verse ", " ")
+    text = text.replace(" verses ", " ")
+    text = text.replace(" to ", "-")
+    text = text.replace(" and ", "-")
+
     command_words = [
         "let's read",
         "lets read",
@@ -65,7 +81,10 @@ def detect_multiple_references(text):
         "verse",
         "verses",
         "from",
-        "to"
+        "to",
+        "let's look at",
+        "lets look at",
+        "look at"
     ]
 
     for word in command_words:
@@ -92,6 +111,7 @@ def detect_multiple_references(text):
 
     pattern = r"([1-3]?\s?[a-z]+(?:\s+[a-z]+)?)\s+(\d+)(?:[:\s]+(\d+(?:-\d+)?))?"
 
+    
     matches = re.findall(pattern, text)
 
     references = []
@@ -110,6 +130,28 @@ def detect_multiple_references(text):
             references.append(f"{book} {chapter}")
 
     return references
+
+def get_verse(reference, translation="kjv"):
+    url = f"https://bible-api.com/{reference}?translation={translation}"
+    response = requests.get(url)
+
+    if response.status_code == 200:
+        data = response.json()
+        verses = data.get("verses", [])
+
+        if verses:
+            formatted_verses = []
+
+            for verse in verses:
+                verse_number = verse.get("verse")
+                verse_text = verse.get("text", "").strip()
+                formatted_verses.append(f"{verse_number}. {verse_text}")
+
+            return "\n".join(formatted_verses)
+
+        return data.get("text", "Verse not found.")
+
+    return "Verse not found."
 
 async def main():
     async with websockets.connect(
@@ -163,6 +205,12 @@ async def main():
 
                     if references:
                         print("SCRIPTURE FOUND:", references)
+                        first_reference = references[0]
+                        verse_text = get_verse(first_reference, "kjv")
+
+                        print("\nREFERENCE:", first_reference)
+                        print("VERSE:")
+                        print(verse_text)
 
                 elif event_type == "error":
                      
