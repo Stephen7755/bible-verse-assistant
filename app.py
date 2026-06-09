@@ -709,6 +709,78 @@ def get_next_scripture_from_queue():
         return st.session_state.scripture_queue.pop(0)
 
     return None
+
+
+async def realtime_scripture_listener():
+
+    st.info("Realtime listener started. Connecting...")
+
+    async with websockets.connect(
+        REALTIME_URL,
+        additional_headers={
+            "Authorization": f"Bearer {OPENAI_API_KEY}",
+        },
+    ) as websocket:
+
+        st.success("Connected to OpenAI Realtime API")
+
+        session_update = {
+            "type": "session.update",
+            "session": {
+                "type": "realtime",
+                "audio": {
+                    "input": {
+                        "format": {
+                            "type": "audio/pcm",
+                            "rate": 24000
+                        },
+                        "transcription": {
+                            "model": "gpt-4o-mini-transcribe",
+                            "language": "en"
+                        }
+                    }
+                }
+            }
+        }
+
+        await websocket.send(json.dumps(session_update))
+
+        st.success("Realtime transcription ready")
+
+        transcript_placeholder = st.empty()
+
+        async def receive_events():
+            while True:
+                message = await websocket.recv()
+                event = json.loads(message)
+
+                event_type = event.get("type", "")
+
+                if event_type == "conversation.item.input_audio_transcription.delta":
+                    delta = event.get("delta", "")
+                    transcript_placeholder.write(delta)
+
+                elif event_type == "conversation.item.input_audio_transcription.completed":
+                    transcript = event.get("transcript", "")
+
+                    st.write("COMPLETED:", transcript)
+
+                    references = detect_multiple_references(transcript)
+
+                    if references:
+                        reference = references[0]
+                        verse_text = get_verse(reference, translation)
+
+                        st.session_state.current_display_reference = reference
+                        st.session_state.current_display_text = verse_text
+
+                        st.subheader(reference)
+                        display_verse(verse_text, presentation_mode)
+
+                elif event_type == "error":
+                    st.error(event)
+
+        await receive_events()
 # =========================
 # 11. SEMANTIC SEARCH MODEL SETUP
 # =========================
@@ -907,6 +979,9 @@ if continuous_mode and realtime_mode:
         "Please enable either Continuous Listening or Realtime Mode, not both."
     )
     st.stop()
+
+if realtime_mode:
+    asyncio.run(realtime_scripture_listener())
 
 if continuous_mode:
     st.info("Continuous listening is active. Speak a Bible reference clearly.")
