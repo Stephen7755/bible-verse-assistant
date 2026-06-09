@@ -9,6 +9,10 @@
 import os
 import re
 import time
+import asyncio
+import base64
+import json
+import websockets
 
 import pandas as pd
 import requests
@@ -28,7 +32,11 @@ from sklearn.metrics.pairwise import cosine_similarity
 # The API key is stored inside your .env file as OPENAI_API_KEY.
 
 load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+REALTIME_URL = "wss://api.openai.com/v1/realtime?model=gpt-realtime"
+
+client = OpenAI(api_key=OPENAI_API_KEY)
 
 
 # =========================
@@ -877,6 +885,10 @@ st.subheader("Continuous Listening Mode")
 
 continuous_mode = st.checkbox("Enable continuous listening")
 
+realtime_mode = st.checkbox(
+    "Enable Realtime Scripture Detection"
+)
+
 wake_phrase_mode = st.toggle(
     "Wake Phrase Mode",
     value=False
@@ -889,6 +901,12 @@ listening_seconds = st.slider(
     value=2,
     key="continuous_seconds"
 )
+
+if continuous_mode and realtime_mode:
+    st.error(
+        "Please enable either Continuous Listening or Realtime Mode, not both."
+    )
+    st.stop()
 
 if continuous_mode:
     st.info("Continuous listening is active. Speak a Bible reference clearly.")

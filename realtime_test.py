@@ -153,7 +153,7 @@ def get_verse(reference, translation="kjv"):
 
     return "Verse not found."
 
-async def main():
+async def realtime_listener():
     async with websockets.connect(
         REALTIME_URL,
         additional_headers={
@@ -175,7 +175,7 @@ async def main():
                     "rate": 24000
                 },
                 "transcription": {
-                    "model": "gpt-realtime-whisper",
+                    "model": "gpt-4o-mini-transcribe",
                     "language": "en"
                 }
             }
@@ -241,4 +241,4 @@ async def main():
 
 
 loop = asyncio.get_event_loop()
-loop.run_until_complete(main())
+loop.run_until_complete(realtime_listener())
