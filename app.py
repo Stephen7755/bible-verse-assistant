@@ -281,6 +281,27 @@ def contains_command(text):
 
     return any(command in text for command in commands)
 
+def fix_joined_chapter_verse(text):
+    valid_books = [
+        "genesis", "exodus", "leviticus", "numbers", "deuteronomy",
+        "joshua", "judges", "ruth", "samuel", "kings", "chronicles",
+        "ezra", "nehemiah", "esther", "job", "psalm", "psalms",
+        "proverbs", "ecclesiastes", "isaiah", "jeremiah", "lamentations",
+        "ezekiel", "daniel", "hosea", "joel", "amos", "obadiah",
+        "jonah", "micah", "nahum", "habakkuk", "zephaniah", "haggai",
+        "zechariah", "malachi", "matthew", "mark", "luke", "john",
+        "acts", "romans", "corinthians", "galatians", "ephesians",
+        "philippians", "colossians", "thessalonians", "timothy",
+        "titus", "philemon", "hebrews", "james", "peter", "jude",
+        "revelation"
+    ]
+
+    for book in valid_books:
+        pattern = rf"\b{book}\s+(\d)(\d{{2}})\b"
+        replacement = rf"{book} \1:\2"
+        text = re.sub(pattern, replacement, text)
+
+    return text
 
 # =========================
 # 8. MULTIPLE REFERENCE DETECTION
@@ -295,9 +316,11 @@ def detect_multiple_references(text):
     text = text.lower()
     text = text.replace("’", "'")
     text = convert_number_words(text)
+    text = fix_joined_chapter_verse(text)
 
     text = text.replace(",", "")
     text = text.replace(".", "")
+    
 
     text = text.replace("scripture open", "open")
     text = text.replace("bible open", "open")
@@ -519,7 +542,9 @@ def get_verse(reference, translation):
 
         return data.get("text", "Verse not found.")
 
-    return "Verse not found."
+    return f"Verse not found for {reference}. Please check the reference."
+    
+
 
 
 # =========================
@@ -725,23 +750,31 @@ async def realtime_scripture_listener():
         st.success("Connected to OpenAI Realtime API")
 
         session_update = {
-            "type": "session.update",
-            "session": {
-                "type": "realtime",
-                "audio": {
-                    "input": {
-                        "format": {
-                            "type": "audio/pcm",
-                            "rate": 24000
-                        },
-                        "transcription": {
-                            "model": "gpt-4o-mini-transcribe",
-                            "language": "en"
-                        }
-                    }
+    "type": "session.update",
+    "session": {
+        "type": "realtime",
+        "audio": {
+            "input": {
+                "format": {
+                    "type": "audio/pcm",
+                    "rate": 24000
+                },
+                "transcription": {
+                    "model": "gpt-4o-mini-transcribe",
+                    "language": "en"
+                },
+                "turn_detection": {
+                    "type": "server_vad",
+                    "threshold": 0.5,
+                    "prefix_padding_ms": 300,
+                    "silence_duration_ms": 300,
+                    "create_response": False,
+                    "interrupt_response": False
                 }
             }
         }
+    }
+}
 
         await websocket.send(json.dumps(session_update))
 
@@ -757,8 +790,9 @@ async def realtime_scripture_listener():
                 event_type = event.get("type", "")
 
                 if event_type == "conversation.item.input_audio_transcription.delta":
-                    delta = event.get("delta", "")
-                    transcript_placeholder.write(delta)
+                    pass
+                    #delta = event.get("delta", "")
+                    #transcript_placeholder.write(delta)
 
                 elif event_type == "conversation.item.input_audio_transcription.completed":
                     transcript = event.get("transcript", "")
@@ -780,7 +814,33 @@ async def realtime_scripture_listener():
                 elif event_type == "error":
                     st.error(event)
 
-        await receive_events()
+        def audio_callback(indata, frames, time, status):
+            if status:
+                st.warning(status)
+
+            audio_bytes = indata.tobytes()
+            audio_base64 = base64.b64encode(audio_bytes).decode("utf-8")
+
+            asyncio.run_coroutine_threadsafe(
+                websocket.send(json.dumps({
+                    "type": "input_audio_buffer.append",
+                    "audio": audio_base64
+                })),
+                loop
+            )
+
+        loop = asyncio.get_running_loop()
+
+        with sd.InputStream(
+            samplerate=24000,
+            channels=1,
+            dtype="int16",
+            callback=audio_callback
+        ):
+            st.success("Microphone streaming started. Speak now.")
+            await receive_events()
+
+
 # =========================
 # 11. SEMANTIC SEARCH MODEL SETUP
 # =========================
