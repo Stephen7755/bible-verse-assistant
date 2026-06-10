@@ -66,6 +66,9 @@ if "current_reference" not in st.session_state:
 if "current_display_text" not in st.session_state:
     st.session_state.current_display_text = None
 
+if "reference_history" not in st.session_state:
+    st.session_state.reference_history = []
+
 if presentation_mode:
     st.markdown(
         """
@@ -105,9 +108,9 @@ if not presentation_mode or show_controls:
     # upload sermon audio, or use the browser microphone recorder.
 
     translation = st.selectbox(
-        "Choose Bible Translation",
-        ["kjv", "web"]
-    )
+    "Choose Bible Translation",
+    ["kjv", "web", "asv", "bbe", "darby", "dra", "ylt"]
+)
 
     compare_translations = st.toggle(
     "Compare Translations",
@@ -607,6 +610,22 @@ def contains_wake_phrase(text):
 
     return any(phrase in text for phrase in wake_phrases)
 
+def is_previous_scripture_command(text):
+    text = text.lower()
+
+    commands = [
+        "previous scripture",
+        "go back to previous scripture",
+        "return to previous scripture",
+        "go back to the previous scripture",
+        "back to previous scripture",
+        "go back",
+        "previous passage",
+        "previous reference"
+    ]
+
+    return any(command in text for command in commands)
+
 def get_parallel_verses(reference):
     kjv_text = get_verse(reference, "kjv")
     web_text = get_verse(reference, "web")
@@ -648,9 +667,32 @@ def detect_requested_translation(text, default_translation):
     if "in kjv" in text:
         return "kjv"
 
+    if "asv" in text or "american standard" in text:
+        return "asv"
+
+    if "bbe" in text or "basic english" in text:
+        return "bbe"
+
+    if "darby" in text:
+        return "darby"
+
+    if "douay" in text or "dra" in text:
+        return "dra"
+
+    if "young" in text or "ylt" in text:
+        return "ylt"
     return default_translation
 
 def save_current_reference(reference):
+
+    if "reference_history" not in st.session_state:
+        st.session_state.reference_history = []
+
+    current = st.session_state.get("current_reference")
+
+    if current and current != reference:
+        st.session_state.reference_history.append(current)
+
     st.session_state.current_reference = reference
 
 
@@ -799,10 +841,31 @@ async def realtime_scripture_listener():
 
                     st.write("COMPLETED:", transcript)
 
+                    if is_previous_scripture_command(transcript):
+                        history = st.session_state.get("reference_history", [])
+
+                        if history:
+                            previous_reference = history.pop()
+
+                            verse_text = get_verse(previous_reference, translation)
+
+                            st.session_state.current_reference = previous_reference
+                            st.session_state.current_display_reference = previous_reference
+                            st.session_state.current_display_text = verse_text
+
+                            st.subheader(previous_reference)
+                            display_verse(verse_text, presentation_mode)
+
+                        else:
+                            st.warning("No previous scripture found.")
+
+                        return
+
                     references = detect_multiple_references(transcript)
 
                     if references:
                         reference = references[0]
+                        save_current_reference(reference)
                         verse_text = get_verse(reference, translation)
 
                         st.session_state.current_display_reference = reference
@@ -810,6 +873,8 @@ async def realtime_scripture_listener():
 
                         st.subheader(reference)
                         display_verse(verse_text, presentation_mode)
+
+                    
 
                 elif event_type == "error":
                     st.error(event)
