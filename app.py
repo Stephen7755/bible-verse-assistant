@@ -626,6 +626,18 @@ def is_previous_scripture_command(text):
 
     return any(command in text for command in commands)
 
+def parse_reference(reference):
+    match = re.match(r"(.+?)\s+(\d+):(\d+)$", reference)
+
+    if match:
+        book = match.group(1)
+        chapter = int(match.group(2))
+        verse = int(match.group(3))
+
+        return book, chapter, verse
+
+    return None
+
 def get_parallel_verses(reference):
     kjv_text = get_verse(reference, "kjv")
     web_text = get_verse(reference, "web")
@@ -770,6 +782,19 @@ def has_next_scripture_command(text):
 
     return any(command in text for command in commands)
 
+def is_previous_verse_command(text):
+    text = text.lower()
+
+    commands = [
+        "previous verse",
+        "go to previous verse",
+        "read the previous verse",
+        "one verse back",
+        "back one verse"
+    ]
+
+    return any(command in text for command in commands)
+
 
 def get_next_scripture_from_queue():
     if st.session_state.scripture_queue:
@@ -858,6 +883,30 @@ async def realtime_scripture_listener():
 
                         else:
                             st.warning("No previous scripture found.")
+
+                        return
+                    
+                    if is_previous_verse_command(transcript):
+
+                        current_reference = st.session_state.get("current_reference")
+
+                        if current_reference:
+                            parsed = parse_reference(current_reference)
+
+                        if parsed:
+                            book, chapter, verse = parsed
+
+                        if verse > 1:
+                            new_reference = f"{book} {chapter}:{verse - 1}"
+
+                            verse_text = get_verse(new_reference, translation)
+
+                            st.session_state.current_reference = new_reference
+                            st.session_state.current_display_reference = new_reference
+                            st.session_state.current_display_text = verse_text
+
+                            st.subheader(new_reference)
+                            display_verse(verse_text, presentation_mode)
 
                         return
 
