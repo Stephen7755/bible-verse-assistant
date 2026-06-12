@@ -318,12 +318,20 @@ def fix_joined_chapter_verse(text):
 def detect_multiple_references(text):
     text = text.lower()
     text = text.replace("’", "'")
+
+    text = text.replace("openjohn", "open john")
+    text = text.replace("readjohn", "read john")
+    text = text.replace("turnjohn", "turn john")
+    text = text.replace("openromans", "open romans")
+    text = text.replace("readromans", "read romans")
+    text = text.replace("turnromans", "turn romans")
+
     text = convert_number_words(text)
-    text = fix_joined_chapter_verse(text)
 
     text = text.replace(",", "")
     text = text.replace(".", "")
     
+    text = fix_joined_chapter_verse(text)
 
     text = text.replace("scripture open", "open")
     text = text.replace("bible open", "open")
@@ -344,12 +352,6 @@ def detect_multiple_references(text):
     text = text.replace(" and ", "-")
     text = text.replace(" through to ", "-")
 
-    text = text.replace("openjohn", "open john")
-    text = text.replace("readjohn", "read john")
-    text = text.replace("turnjohn", "turn john")
-    text = text.replace("openromans", "open romans")
-    text = text.replace("readromans", "read romans")
-    text = text.replace("turnromans", "turn romans")
 
     command_words = [
         "let's continue from where we stopped",
@@ -525,9 +527,18 @@ def detect_multiple_references(text):
 # Retrieves scripture text from bible-api.com.
 # The output is formatted verse-by-verse for readability.
 
-def get_verse(reference, translation):
+def get_verse(reference, translation="kjv"):
+    start_time = time.time()
+
     url = f"https://bible-api.com/{reference}?translation={translation}"
     response = requests.get(url)
+
+    end_time = time.time()
+
+    print(
+        f"Bible API: {reference} took "
+        f"{round(end_time - start_time, 2)} seconds"
+    )
 
     if response.status_code == 200:
         data = response.json()
@@ -546,8 +557,6 @@ def get_verse(reference, translation):
         return data.get("text", "Verse not found.")
 
     return f"Verse not found for {reference}. Please check the reference."
-    
-
 
 
 # =========================
@@ -795,6 +804,19 @@ def is_previous_verse_command(text):
 
     return any(command in text for command in commands)
 
+def extract_requested_verse(text):
+    text = text.lower()
+
+    match = re.search(
+        r"(?:start from verse|go to verse|verse)\s+(\d+)",
+        text
+    )
+
+    if match:
+        return int(match.group(1))
+
+    return None
+
 
 def get_next_scripture_from_queue():
     if st.session_state.scripture_queue:
@@ -833,8 +855,8 @@ async def realtime_scripture_listener():
                 "turn_detection": {
                     "type": "server_vad",
                     "threshold": 0.5,
-                    "prefix_padding_ms": 300,
-                    "silence_duration_ms": 300,
+                    "prefix_padding_ms": 100,
+                    "silence_duration_ms": 250,
                     "create_response": False,
                     "interrupt_response": False
                 }
@@ -848,6 +870,7 @@ async def realtime_scripture_listener():
         st.success("Realtime transcription ready")
 
         transcript_placeholder = st.empty()
+        scripture_placeholder = st.empty()
 
         async def receive_events():
             while True:
@@ -858,13 +881,11 @@ async def realtime_scripture_listener():
 
                 if event_type == "conversation.item.input_audio_transcription.delta":
                     pass
-                    #delta = event.get("delta", "")
-                    #transcript_placeholder.write(delta)
 
                 elif event_type == "conversation.item.input_audio_transcription.completed":
                     transcript = event.get("transcript", "")
 
-                    st.write("COMPLETED:", transcript)
+                    #st.write("COMPLETED:", transcript)
 
                     if is_previous_scripture_command(transcript):
                         history = st.session_state.get("reference_history", [])
@@ -878,37 +899,81 @@ async def realtime_scripture_listener():
                             st.session_state.current_display_reference = previous_reference
                             st.session_state.current_display_text = verse_text
 
-                            st.subheader(previous_reference)
-                            display_verse(verse_text, presentation_mode)
+                            with scripture_placeholder.container():
+                                st.subheader(previous_reference)
+                                display_verse(verse_text, presentation_mode)
 
                         else:
                             st.warning("No previous scripture found.")
 
-                        return
-                    
-                    if is_previous_verse_command(transcript):
+                        continue
 
+                    if is_previous_verse_command(transcript):
                         current_reference = st.session_state.get("current_reference")
 
                         if current_reference:
                             parsed = parse_reference(current_reference)
 
-                        if parsed:
-                            book, chapter, verse = parsed
+                            if parsed:
+                                book, chapter, verse = parsed
 
-                        if verse > 1:
-                            new_reference = f"{book} {chapter}:{verse - 1}"
+                                if verse > 1:
+                                    new_reference = f"{book} {chapter}:{verse - 1}"
 
-                            verse_text = get_verse(new_reference, translation)
+                                    verse_text = get_verse(new_reference, translation)
 
-                            st.session_state.current_reference = new_reference
-                            st.session_state.current_display_reference = new_reference
+                                    st.session_state.current_reference = new_reference
+                                    st.session_state.current_display_reference = new_reference
+                                    st.session_state.current_display_text = verse_text
+
+                                    with scripture_placeholder.container():
+                                        st.subheader(new_reference)
+                                        display_verse(verse_text, presentation_mode)
+
+                        continue
+                    
+                    if is_next_verse_command(transcript):
+                        current_reference = st.session_state.get("current_reference")
+
+                        if current_reference:
+                            next_reference = get_next_reference(current_reference)
+
+                            verse_text = get_verse(next_reference, translation)
+
+                            st.session_state.current_reference = next_reference
+                            st.session_state.current_display_reference = next_reference
                             st.session_state.current_display_text = verse_text
 
-                            st.subheader(new_reference)
-                            display_verse(verse_text, presentation_mode)
+                            with scripture_placeholder.container():
+                                st.subheader(next_reference)
+                                display_verse(verse_text, presentation_mode)
 
-                        return
+                        continue
+
+                    requested_verse = extract_requested_verse(transcript)
+
+                    if requested_verse:
+                        current_reference = st.session_state.get("current_reference")
+
+                        if current_reference:
+                            parsed = parse_reference(current_reference)
+
+                            if parsed:
+                                book, chapter, verse = parsed
+
+                                new_reference = f"{book} {chapter}:{requested_verse}"
+
+                                verse_text = get_verse(new_reference, translation)
+
+                                st.session_state.current_reference = new_reference
+                                st.session_state.current_display_reference = new_reference
+                                st.session_state.current_display_text = verse_text
+
+                                with scripture_placeholder.container():
+                                    st.subheader(new_reference)
+                                    display_verse(verse_text, presentation_mode)
+
+                        continue
 
                     references = detect_multiple_references(transcript)
 
@@ -920,10 +985,9 @@ async def realtime_scripture_listener():
                         st.session_state.current_display_reference = reference
                         st.session_state.current_display_text = verse_text
 
-                        st.subheader(reference)
-                        display_verse(verse_text, presentation_mode)
-
-                    
+                        with scripture_placeholder.container():
+                            st.subheader(reference)
+                            display_verse(verse_text, presentation_mode)
 
                 elif event_type == "error":
                     st.error(event)
